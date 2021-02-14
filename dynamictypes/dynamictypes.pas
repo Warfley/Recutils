@@ -1,0 +1,255 @@
+unit DynamicTypes;
+
+{$mode objfpc}{$H+}
+{$ModeSwitch advancedrecords}
+
+interface
+uses
+  SysUtils;
+
+type
+  ENoValueSetException = class(Exception);
+  TNoneType = record
+  end;
+
+  { TOptional }
+
+  generic TOptional<T> = record
+  public type
+    PData = ^T;
+    TSpecializedOptional = specialize TOptional<T>;
+  private
+    FHasValue: Boolean;
+    FValue: T;
+
+    class operator Initialize(var opt: TOptional);
+  public
+    function Mutable: PData;
+    function Value: T; {$IFDEF INLINING}inline;{$ENDIF}
+    function HasValue: Boolean; {$IFDEF INLINING}inline;{$ENDIF}
+
+    constructor Create(constref AValue: T);
+    class function Empty: TSpecializedOptional; static;
+
+    class operator :=(constref AValue: T): TSpecializedOptional; {$IFDEF INLINING}inline;{$ENDIF}
+    class operator :=(constref AOpt: TSpecializedOptional): T; {$IFDEF INLINING}inline;{$ENDIF}
+    class operator :=(const None: TNoneType): TSpecializedOptional; {$IFDEF INLINING}inline;{$ENDIF}
+    class operator not(constref AOpt: TSpecializedOptional): Boolean; {$IFDEF INLINING}inline;{$ENDIF}
+  end;
+
+  TUnionType = (utNone, utFirst, utSecond);
+
+  { TUnion }
+
+  generic TUnion<TFirst, TSecond> = record
+  public type
+    TSpecializedUnion = specialize TUnion<TFirst, TSecond>;
+    PFirst = ^TFirst;
+    PSecond = ^TSecond;
+  private
+    FType: TUnionType;
+    FFirst: TFirst;
+    FSecond: TSecond;
+  public
+    function GetType: TUnionType; {$IFDEF INLINING}inline;{$ENDIF}
+    function HasValue: Boolean; {$IFDEF INLINING}inline;{$ENDIF}
+    function isFirst: Boolean; {$IFDEF INLINING}inline;{$ENDIF}
+    function isSecond: Boolean; {$IFDEF INLINING}inline;{$ENDIF}
+    function FirstMutable: PFirst;
+    function First: TFirst; {$IFDEF INLINING}inline;{$ENDIF}
+    function SecondMutable: PSecond;
+    function Second: PSecond; {$IFDEF INLINING}inline;{$ENDIF}
+
+
+    constructor FromFirst(constref AValue: TFirst);
+    constructor FromSecond(constref AValue: TSecond);
+    class function Empty: TSpecializedUnion; static;
+
+    class operator :=(constref AValue: TFirst): TSpecializedUnion; {$IFDEF INLINING}inline;{$ENDIF}
+    class operator :=(constref AValue: TSecond): TSpecializedUnion; {$IFDEF INLINING}inline;{$ENDIF}
+    class operator :=(const None: TNoneType): TSpecializedUnion; {$IFDEF INLINING}inline;{$ENDIF}
+    class operator =(constref RHS: TSpecializedUnion; LHS: TUnionType): Boolean; {$IFDEF INLINING}inline;{$ENDIF}
+    class operator =(constref RHS: TUnionType; LHS: TSpecializedUnion): Boolean; {$IFDEF INLINING}inline;{$ENDIF}
+    class operator <>(constref RHS: TSpecializedUnion; LHS: TUnionType): Boolean; {$IFDEF INLINING}inline;{$ENDIF}
+    class operator <>(constref RHS: TUnionType; LHS: TSpecializedUnion): Boolean; {$IFDEF INLINING}inline;{$ENDIF}
+    class operator :=(constref AOpt: TSpecializedUnion): Boolean; {$IFDEF INLINING}inline;{$ENDIF}
+    class operator not(constref AOpt: TSpecializedUnion): Boolean; {$IFDEF INLINING}inline;{$ENDIF}
+  end;
+
+implementation
+
+{ TUnion }
+
+function TUnion.GetType: TUnionType;
+begin
+  Result := FType;
+end;
+
+function TUnion.HasValue: Boolean;
+begin
+  Result := FType <> utNone;
+end;
+
+function TUnion.isFirst: Boolean;
+begin
+  Result := FType = utFirst;
+end;
+
+function TUnion.isSecond: Boolean;
+begin
+  Result := FType = utSecond;
+end;
+
+function TUnion.FirstMutable: PFirst;
+begin
+  if not isFirst then
+    raise ENoValueSetException.Create('No first value set in this Union');
+  Result := @FFirst;
+end;
+
+function TUnion.First: TFirst;
+begin
+  Result := FirstMutable^;
+end;
+
+function TUnion.SecondMutable: PSecond;
+begin
+  if not isSecond then
+    raise ENoValueSetException.Create('No second value set in this Union');
+  Result := @FSecond;
+end;
+
+function TUnion.Second: PSecond;
+begin
+  Result := SecondMutable^;
+end;
+
+constructor TUnion.FromFirst(constref AValue: TFirst);
+begin
+  FType := utFirst;
+  FFirst := AValue;
+  FSecond := Default(TSecond);
+end;
+
+constructor TUnion.FromSecond(constref AValue: TSecond);
+begin
+  FType := utSecond;
+  FFirst := Default(TFirst);
+  FSecond := AValue;
+end;
+
+class function TUnion.Empty: TSpecializedUnion;
+begin
+  Result.FType := utNone;
+  Result.FFirst := Default(TFirst);
+  Result.FSecond := Default(TSecond);
+end;
+
+class operator TUnion.:=(constref AValue: TFirst): TSpecializedUnion;
+begin
+  Result := TSpecializedUnion.FromFirst(AValue);
+end;
+
+class operator TUnion.:=(constref AValue: TSecond): TSpecializedUnion;
+begin
+  Result := TSpecializedUnion.FromSecond(AValue);
+end;
+
+class operator TUnion.:=(const None: TNoneType): TSpecializedUnion;
+begin
+  Result := TSpecializedUnion.Empty;
+end;
+
+class operator TUnion.=(constref RHS: TSpecializedUnion; LHS: TUnionType
+  ): Boolean;
+begin
+  Result := RHS.FType = LHS;
+end;
+
+class operator TUnion.=(constref RHS: TUnionType; LHS: TSpecializedUnion
+  ): Boolean;
+begin
+  Result := RHS = LHS.FType;
+end;
+
+class operator TUnion.<>(constref RHS: TSpecializedUnion; LHS: TUnionType
+  ): Boolean;
+begin
+  Result := RHS.FType <> LHS;
+end;
+
+class operator TUnion.<>(constref RHS: TUnionType; LHS: TSpecializedUnion
+  ): Boolean;
+begin
+  Result := RHS <> LHS.FType;
+end;
+
+class operator TUnion.:=(constref AOpt: TSpecializedUnion): Boolean;
+begin
+  Result := AOpt.HasValue;
+end;
+
+class operator TUnion.not(constref AOpt: TSpecializedUnion): Boolean;
+begin
+  result := not AOpt.HasValue;
+end;
+
+{ TOptional }
+
+class operator TOptional.Initialize(var opt: TOptional);
+begin
+  opt.FHasValue := False;
+  opt.FValue := Default(T);
+end;
+
+function TOptional.Mutable: PData;
+begin
+  if not FHasValue then
+    raise ENoValueSetException.Create('Trying to access an empty optional');
+  Result := @FValue;
+end;
+
+function TOptional.Value: T;
+begin
+  Result := Mutable^;
+end;
+
+function TOptional.HasValue: Boolean;
+begin
+  Result := FHasValue;
+end;
+
+constructor TOptional.Create(constref AValue: T);
+begin
+  FHasValue := True;
+  FValue := AValue;
+end;
+
+class function TOptional.Empty: TSpecializedOptional;
+begin                         
+  Result.FHasValue := False;
+  Result.FValue := Default(T);
+end;
+
+class operator TOptional.:=(constref AValue: T): TSpecializedOptional;
+begin
+  Result := TSpecializedOptional.Create(AValue);
+end;
+
+class operator TOptional.:=(constref AOpt: TSpecializedOptional): T;
+begin
+  Result := AOpt.Value;
+end;
+
+class operator TOptional.:=(const None: TNoneType): TSpecializedOptional;
+begin
+  Result := TSpecializedOptional.Empty;
+end;
+
+class operator TOptional.not(constref AOpt: TSpecializedOptional): Boolean;
+begin
+  Result := not AOpt.FHasValue;
+end;
+
+end.
+
