@@ -22,7 +22,7 @@ type
     FHasValue: Boolean;
     FValue: T;
 
-    class operator Initialize(var opt: TOptional);
+    class operator Initialize(var opt: TSpecializedOptional);
   public
     function Mutable: PData;
     function Value: T; {$IFDEF INLINING}inline;{$ENDIF}
@@ -50,6 +50,8 @@ type
     FType: TUnionType;
     FFirst: TFirst;
     FSecond: TSecond;
+
+    class operator Initialize(var union: TSpecializedUnion);
   public
     function GetType: TUnionType; {$IFDEF INLINING}inline;{$ENDIF}
     function HasValue: Boolean; {$IFDEF INLINING}inline;{$ENDIF}
@@ -79,6 +81,13 @@ type
 implementation
 
 { TUnion }
+
+class operator TUnion.Initialize(var union: TSpecializedUnion);
+begin
+  union.FType:=utNone;
+  union.FFirst := Default(TFirst);
+  union.FSecond := Default(TSecond);
+end;
 
 function TUnion.GetType: TUnionType;
 begin
@@ -196,7 +205,7 @@ end;
 
 { TOptional }
 
-class operator TOptional.Initialize(var opt: TOptional);
+class operator TOptional.Initialize(var opt: TSpecializedOptional);
 begin
   opt.FHasValue := False;
   opt.FValue := Default(T);

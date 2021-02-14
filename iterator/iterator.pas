@@ -44,14 +44,10 @@ end;
 function TIterator.toArray: TTArray;
 var
   lst: TTList;
-  i: Integer;
 begin
-  Result := nil;
   lst := ToList;
   try
-    SetLength(Result, lst.Count);
-    for i:=0 to lst.Count-1 do
-      Result[i] := lst[i];
+    Result := lst.ToArray;
   finally
     lst.Free;
   end;
