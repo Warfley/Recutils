@@ -26,14 +26,15 @@ type
   public
     function Mutable: PData;
     function Value: T; {$IFDEF INLINING}inline;{$ENDIF}
+    function GetOrDefault(constref DefaultValue: T): T;{$IFDEF INLINING}inline;{$ENDIF}
     function HasValue: Boolean; {$IFDEF INLINING}inline;{$ENDIF}
 
     constructor Create(constref AValue: T);
     class function Empty: TSpecializedOptional; static;
 
     class operator :=(constref AValue: T): TSpecializedOptional; {$IFDEF INLINING}inline;{$ENDIF}
-    class operator :=(constref AOpt: TSpecializedOptional): T; {$IFDEF INLINING}inline;{$ENDIF}
     class operator :=(const None: TNoneType): TSpecializedOptional; {$IFDEF INLINING}inline;{$ENDIF}
+    class operator :=(constref AOpt: TSpecializedOptional): Boolean; {$IFDEF INLINING}inline;{$ENDIF}
     class operator not(constref AOpt: TSpecializedOptional): Boolean; {$IFDEF INLINING}inline;{$ENDIF}
   end;
 
@@ -59,8 +60,10 @@ type
     function isSecond: Boolean; {$IFDEF INLINING}inline;{$ENDIF}
     function FirstMutable: PFirst;
     function First: TFirst; {$IFDEF INLINING}inline;{$ENDIF}
+    function FirstOrDefault(constref DefaultValue: TFirst): TFirst;{$IFDEF INLINING}inline;{$ENDIF}
     function SecondMutable: PSecond;
-    function Second: PSecond; {$IFDEF INLINING}inline;{$ENDIF}
+    function Second: TSecond; {$IFDEF INLINING}inline;{$ENDIF}
+    function SecondOrDefault(constref DefaultValue: TSecond): TSecond;{$IFDEF INLINING}inline;{$ENDIF}
 
 
     constructor FromFirst(constref AValue: TFirst);
@@ -78,7 +81,19 @@ type
     class operator not(constref AOpt: TSpecializedUnion): Boolean; {$IFDEF INLINING}inline;{$ENDIF}
   end;
 
+function EmptyOptional: TNoneType;
+function EmptyUnion: TNoneType;
 implementation
+
+function EmptyOptional: TNoneType;
+begin
+  //noop
+end;
+
+function EmptyUnion: TNoneType;
+begin
+  //noop
+end;
 
 { TUnion }
 
@@ -121,6 +136,14 @@ begin
   Result := FirstMutable^;
 end;
 
+function TUnion.FirstOrDefault(constref DefaultValue: TFirst): TFirst;
+begin
+  if isFirst then
+    Result := FFirst
+  else
+    Result := DefaultValue;
+end;
+
 function TUnion.SecondMutable: PSecond;
 begin
   if not isSecond then
@@ -128,9 +151,17 @@ begin
   Result := @FSecond;
 end;
 
-function TUnion.Second: PSecond;
+function TUnion.Second: TSecond;
 begin
   Result := SecondMutable^;
+end;
+
+function TUnion.SecondOrDefault(constref DefaultValue: TSecond): TSecond;
+begin
+  if isSecond then
+    Result := FSecond
+  else
+    Result := DefaultValue;
 end;
 
 constructor TUnion.FromFirst(constref AValue: TFirst);
@@ -223,6 +254,14 @@ begin
   Result := Mutable^;
 end;
 
+function TOptional.GetOrDefault(constref DefaultValue: T): T;
+begin
+  if FHasValue then
+    Result := FValue
+  else
+    Result := DefaultValue;
+end;
+
 function TOptional.HasValue: Boolean;
 begin
   Result := FHasValue;
@@ -245,14 +284,14 @@ begin
   Result := TSpecializedOptional.Create(AValue);
 end;
 
-class operator TOptional.:=(constref AOpt: TSpecializedOptional): T;
-begin
-  Result := AOpt.Value;
-end;
-
 class operator TOptional.:=(const None: TNoneType): TSpecializedOptional;
 begin
   Result := TSpecializedOptional.Empty;
+end;
+
+class operator TOptional.:=(constref AOpt: TSpecializedOptional): Boolean;
+begin
+  Result := AOpt.HasValue;
 end;
 
 class operator TOptional.not(constref AOpt: TSpecializedOptional): Boolean;
